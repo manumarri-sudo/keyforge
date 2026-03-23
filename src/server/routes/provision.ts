@@ -7,8 +7,8 @@ import { logAudit } from '../../store/audit.js';
 const provision = new Hono();
 
 function maskKey(value: string): string {
-  if (value.length <= 8) return '****';
-  return value.slice(0, 8) + '****';
+  if (value.length <= 12) return '****';
+  return value.slice(0, 8) + '****' + value.slice(-4);
 }
 
 const PROJECT_NAME_RE = /^[a-z0-9][a-z0-9-]{0,49}$/;
@@ -37,7 +37,7 @@ provision.post('/provision', async (c) => {
 
     const stored = await getCredential(providerId);
     if (!stored) {
-      errors.push({ providerId, error: 'Not connected' });
+      errors.push({ providerId, error: 'Not connected. Connect this service first.' });
       continue;
     }
 
@@ -57,13 +57,16 @@ provision.post('/provision', async (c) => {
         logAudit({ event: 'key_created', providerId, projectName });
       } else {
         // Copy stored credentials to .env
-        // Map envVars positionally to credentialFields
         const envMap: Record<string, string> = {};
         for (let i = 0; i < provider.envVars.length; i++) {
           const field = provider.credentialFields[i];
           if (field && stored.credentials[field.key]) {
             envMap[provider.envVars[i]] = stored.credentials[field.key];
           }
+        }
+        if (Object.keys(envMap).length === 0) {
+          errors.push({ providerId, error: 'No credentials found to copy' });
+          continue;
         }
         Object.assign(allKeys, envMap);
         services[providerId] = { method: 'copy', envVars: Object.keys(envMap) };
@@ -74,12 +77,18 @@ provision.post('/provision', async (c) => {
     }
   }
 
-  // Write project even if some providers failed
-  if (Object.keys(allKeys).length > 0) {
-    createProject(projectName, services);
-    writeEnv(projectName, allKeys);
-    logAudit({ event: 'project_created', projectName });
+  // Only create project if we got at least some keys
+  if (Object.keys(allKeys).length === 0) {
+    return c.json({
+      success: false,
+      error: 'All providers failed. No keys were provisioned.',
+      errors,
+    }, 400);
   }
+
+  createProject(projectName, services);
+  writeEnv(projectName, allKeys);
+  logAudit({ event: 'project_created', projectName });
 
   const maskedVars: Record<string, string> = {};
   for (const [k, v] of Object.entries(allKeys)) {

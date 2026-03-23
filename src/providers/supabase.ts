@@ -16,6 +16,10 @@ export const supabase: ProviderDefinition = {
   envVars: ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY'],
 
   async validateCredential(creds) {
+    if (!creds.accessToken) {
+      return { valid: false, error: 'Personal Access Token is required' };
+    }
+
     try {
       const [projRes, orgRes] = await Promise.all([
         fetch('https://api.supabase.com/v1/projects', {
@@ -27,10 +31,17 @@ export const supabase: ProviderDefinition = {
           signal: AbortSignal.timeout(TIMEOUT),
         }),
       ]);
-      if (!projRes.ok) return { valid: false, error: `Supabase returned ${projRes.status}` };
+
+      if (!projRes.ok) {
+        if (projRes.status === 401) return { valid: false, error: 'Invalid access token' };
+        return { valid: false, error: `Supabase returned ${projRes.status}` };
+      }
+
       const orgs = await orgRes.json() as Array<{ id: string; name: string }>;
-      const orgId = orgs[0]?.id || '';
-      const orgName = orgs[0]?.name || 'Supabase Account';
+      if (!orgs.length) return { valid: false, error: 'No organizations found for this token' };
+
+      const orgId = orgs[0].id;
+      const orgName = orgs[0].name || 'Supabase Account';
       return { valid: true, account: orgName, metadata: { orgId } };
     } catch (e) {
       return { valid: false, error: (e as Error).message };
@@ -57,20 +68,29 @@ export const supabase: ProviderDefinition = {
       }),
       signal: AbortSignal.timeout(30000),
     });
-    if (!createRes.ok) throw new Error(`Supabase project creation failed: ${createRes.status}`);
+
+    if (!createRes.ok) {
+      const err = await createRes.json().catch(() => ({})) as { message?: string };
+      throw new Error(`Supabase project creation failed: ${err.message || createRes.status}`);
+    }
+
     const project = await createRes.json() as { id: string; ref?: string };
     const ref = project.ref || project.id;
 
     // Poll for readiness (up to 60s)
     for (let i = 0; i < 12; i++) {
       await new Promise((r) => setTimeout(r, 5000));
-      const statusRes = await fetch(`https://api.supabase.com/v1/projects/${ref}`, {
-        headers: { Authorization: `Bearer ${creds.accessToken}` },
-        signal: AbortSignal.timeout(TIMEOUT),
-      });
-      if (statusRes.ok) {
-        const s = await statusRes.json() as { status: string };
-        if (s.status === 'ACTIVE_HEALTHY') break;
+      try {
+        const statusRes = await fetch(`https://api.supabase.com/v1/projects/${ref}`, {
+          headers: { Authorization: `Bearer ${creds.accessToken}` },
+          signal: AbortSignal.timeout(TIMEOUT),
+        });
+        if (statusRes.ok) {
+          const s = await statusRes.json() as { status: string };
+          if (s.status === 'ACTIVE_HEALTHY') break;
+        }
+      } catch {
+        // Retry on network error during polling
       }
     }
 
@@ -93,5 +113,17 @@ export const supabase: ProviderDefinition = {
       },
       keyId: ref,
     };
+  },
+
+  async revokeKey(keyId, creds) {
+    // Delete the Supabase project (pauses it first, then deletes)
+    const res = await fetch(`https://api.supabase.com/v1/projects/${keyId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${creds.accessToken}` },
+      signal: AbortSignal.timeout(TIMEOUT),
+    });
+    if (!res.ok && res.status !== 404) {
+      throw new Error(`Supabase project deletion failed: ${res.status}`);
+    }
   },
 };

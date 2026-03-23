@@ -13,6 +13,7 @@ export type AuditEvent =
   | 'key_copied'
   | 'project_created'
   | 'project_exported'
+  | 'project_deleted'
   | 'key_revoked';
 
 export interface AuditEntry {

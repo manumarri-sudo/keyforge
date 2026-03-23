@@ -15,12 +15,23 @@ export const openai: ProviderDefinition = {
   envVars: ['OPENAI_API_KEY'],
 
   async validateCredential(creds) {
+    if (!creds.adminKey) {
+      return { valid: false, error: 'Admin API key is required' };
+    }
+    if (!creds.adminKey.startsWith('sk-admin-')) {
+      return { valid: false, error: 'Key should start with sk-admin- (admin keys only, not regular API keys)' };
+    }
+
     try {
       const res = await fetch('https://api.openai.com/v1/organization/me', {
         headers: { Authorization: `Bearer ${creds.adminKey}` },
         signal: AbortSignal.timeout(TIMEOUT),
       });
-      if (!res.ok) return { valid: false, error: `OpenAI returned ${res.status}` };
+      if (!res.ok) {
+        if (res.status === 401) return { valid: false, error: 'Invalid admin key' };
+        if (res.status === 403) return { valid: false, error: 'Key lacks admin permissions. Create an admin key in Organization Settings.' };
+        return { valid: false, error: `OpenAI returned ${res.status}` };
+      }
       const data = await res.json() as { name?: string; id?: string };
       return { valid: true, account: data.name || data.id || 'OpenAI Org' };
     } catch (e) {
@@ -35,10 +46,13 @@ export const openai: ProviderDefinition = {
         Authorization: `Bearer ${creds.adminKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ name: projectName }),
+      body: JSON.stringify({ name: `keyforge-${projectName}` }),
       signal: AbortSignal.timeout(TIMEOUT),
     });
-    if (!res.ok) throw new Error(`OpenAI key creation failed: ${res.status}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({})) as { error?: { message?: string } };
+      throw new Error(err.error?.message || `OpenAI key creation failed: ${res.status}`);
+    }
     const data = await res.json() as { value: string; id: string };
     return { keys: { OPENAI_API_KEY: data.value }, keyId: data.id };
   },
@@ -49,6 +63,8 @@ export const openai: ProviderDefinition = {
       headers: { Authorization: `Bearer ${creds.adminKey}` },
       signal: AbortSignal.timeout(TIMEOUT),
     });
-    if (!res.ok) throw new Error(`OpenAI key revocation failed: ${res.status}`);
+    if (!res.ok && res.status !== 404) {
+      throw new Error(`OpenAI key revocation failed: ${res.status}`);
+    }
   },
 };

@@ -92,14 +92,25 @@ export function exportProject(name: string, targetPath: string): void {
 
   if (!fs.existsSync(envFile)) throw new Error(`No .env found for project "${name}"`);
 
-  ensureDir(targetPath);
-  fs.copyFileSync(envFile, path.join(targetPath, '.env'));
-  if (fs.existsSync(exampleFile)) {
-    fs.copyFileSync(exampleFile, path.join(targetPath, '.env.example'));
+  // Validate target path is writable
+  const resolvedTarget = path.resolve(targetPath);
+  try {
+    ensureDir(resolvedTarget);
+    // Test write access
+    const testFile = path.join(resolvedTarget, '.keyforge-write-test');
+    fs.writeFileSync(testFile, '');
+    fs.unlinkSync(testFile);
+  } catch {
+    throw new Error(`Cannot write to "${resolvedTarget}". Check directory permissions.`);
   }
 
-  // Create/update .gitignore
-  const gitignorePath = path.join(targetPath, '.gitignore');
+  fs.copyFileSync(envFile, path.join(resolvedTarget, '.env'));
+  if (fs.existsSync(exampleFile)) {
+    fs.copyFileSync(exampleFile, path.join(resolvedTarget, '.env.example'));
+  }
+
+  // Create/update .gitignore to prevent accidental commits
+  const gitignorePath = path.join(resolvedTarget, '.gitignore');
   if (fs.existsSync(gitignorePath)) {
     const content = fs.readFileSync(gitignorePath, 'utf-8');
     if (!content.includes('.env')) {
