@@ -10,6 +10,7 @@ body {
   color: #111827;
 }
 
+/* Animations */
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -39,34 +40,20 @@ body {
   50% { opacity: 0.4; }
 }
 
-.animate-spin {
-  animation: spin 1s linear infinite;
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
-.animate-slide-in {
-  animation: slide-in 0.2s ease-out;
-}
+.animate-spin { animation: spin 1s linear infinite; }
+.animate-slide-in { animation: slide-in 0.2s ease-out; }
+.animate-fade-in { animation: fade-in 0.2s ease-out both; }
+.animate-fade-in-up { animation: fade-in-up 0.35s ease-out both; }
+.animate-scale-in { animation: scale-in 0.2s ease-out both; }
+.animate-pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
 
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out both;
-}
-
-.animate-fade-in-up {
-  animation: fade-in-up 0.4s ease-out both;
-}
-
-.animate-scale-in {
-  animation: scale-in 0.2s ease-out both;
-}
-
-.animate-pulse-dot {
-  animation: pulse-dot 2s ease-in-out infinite;
-}
-
-/* Staggered fade-in for grid children */
-.stagger-grid > * {
-  animation: fade-in-up 0.4s ease-out both;
-}
+/* Staggered grid */
+.stagger-grid > * { animation: fade-in-up 0.35s ease-out both; }
 .stagger-grid > *:nth-child(1) { animation-delay: 0ms; }
 .stagger-grid > *:nth-child(2) { animation-delay: 50ms; }
 .stagger-grid > *:nth-child(3) { animation-delay: 100ms; }
@@ -74,14 +61,19 @@ body {
 .stagger-grid > *:nth-child(5) { animation-delay: 200ms; }
 .stagger-grid > *:nth-child(6) { animation-delay: 250ms; }
 
-/* Card hover effect */
+/* Card hover */
 .card-hover {
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 .card-hover:hover {
   border-color: #d1d5db;
   box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.06), 0 1px 4px -1px rgba(0, 0, 0, 0.04);
   transform: translateY(-1px);
+}
+
+/* Button press */
+button:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 /* Gradient text */
@@ -92,28 +84,33 @@ body {
   background-clip: text;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+/* Skeleton loading */
+.skeleton {
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 8px;
 }
 
-/* Better focus ring */
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* Focus */
 *:focus-visible {
   outline: 2px solid #059669;
   outline-offset: 2px;
   border-radius: 4px;
 }
+input:focus-visible { outline: none; }
 
-input:focus-visible {
-  outline: none;
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

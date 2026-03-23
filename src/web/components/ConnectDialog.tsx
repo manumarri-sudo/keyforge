@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { connectProvider, type ProviderInfo } from '../lib/api';
+import ProviderIcon from './ProviderIcon';
 import { toast } from './Toast';
 
 interface Props {
@@ -52,7 +53,12 @@ export default function ConnectDialog({ provider, onClose, onConnected }: Props)
 
         <form onSubmit={handleSubmit} className="p-6">
           <div className="flex items-center gap-3 mb-6">
-            <span className="text-2xl">{provider.icon}</span>
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: `${provider.color}12`, color: provider.color }}
+            >
+              <ProviderIcon providerId={provider.id} className="w-5 h-5" />
+            </div>
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Connect {provider.name}</h2>
               <a

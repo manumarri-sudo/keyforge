@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { fetchProviders, provision, fetchEnv, type ProviderInfo, type ProvisionResult } from '../lib/api';
+import ProviderIcon from './ProviderIcon';
 import { toast } from './Toast';
 
 interface Props {
@@ -192,7 +193,12 @@ export default function ProvisionFlow({ onCreated }: Props) {
                     onChange={() => handleToggle(p.id)}
                     className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500/30"
                   />
-                  <span className="text-lg">{p.icon}</span>
+                  <div
+                    className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: `${p.color}12`, color: p.color }}
+                  >
+                    <ProviderIcon providerId={p.id} className="w-3.5 h-3.5" />
+                  </div>
                   <span className="text-sm font-medium text-gray-800 flex-1">{p.name}</span>
                   {p.canCreateKeys ? (
                     <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-600 border border-emerald-200">
