@@ -25,7 +25,7 @@ export const anthropic: ProviderDefinition = {
 
     try {
       // Use the models list endpoint - lightweight, no cost
-      const res = await fetch('https://api.anthropic.com/v1/models', {
+      const res = await fetch('https://api.anthropic.com/v1/models?limit=1', {
         headers: {
           'x-api-key': creds.apiKey,
           'anthropic-version': '2023-06-01',

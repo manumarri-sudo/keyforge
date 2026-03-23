@@ -28,7 +28,7 @@ export const clerk: ProviderDefinition = {
 
     try {
       // Validate by calling the Clerk Backend API - list clients endpoint is lightweight
-      const res = await fetch('https://api.clerk.com/v1/clients', {
+      const res = await fetch('https://api.clerk.com/v1/users?limit=1', {
         headers: { Authorization: `Bearer ${creds.secretKey}` },
         signal: AbortSignal.timeout(TIMEOUT),
       });
