@@ -1,5 +1,18 @@
 const BASE = '/api';
 
+let _apiAvailable: boolean | null = null;
+
+export async function checkApiAvailable(): Promise<boolean> {
+  if (_apiAvailable !== null) return _apiAvailable;
+  try {
+    const res = await fetch(`${BASE}/providers`, { signal: AbortSignal.timeout(3000) });
+    _apiAvailable = res.ok;
+  } catch {
+    _apiAvailable = false;
+  }
+  return _apiAvailable;
+}
+
 export interface ProviderInfo {
   id: string;
   name: string;

@@ -12,6 +12,6 @@
     "declaration": true,
     "resolveJsonModule": true
   },
-  "include": ["src/server/**/*", "src/providers/**/*", "src/store/**/*", "src/cli/**/*"],
+  "include": ["src/server/**/*", "src/providers/**/*", "src/store/**/*", "src/cli/**/*", "src/types/**/*"],
   "exclude": ["node_modules", "dist", "src/web/**/*"]
 }

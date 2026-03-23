@@ -4,13 +4,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: '#09090b',    // zinc-950
-        card: '#18181b',          // zinc-900
-        'card-border': '#27272a', // zinc-800
-        accent: '#10b981',        // emerald-500
-        warning: '#eab308',       // yellow-500
-        'text-primary': '#f4f4f5',   // zinc-100
-        'text-secondary': '#a1a1aa', // zinc-400
+        background: '#fafafa',
+        card: '#ffffff',
+        'card-border': '#e5e7eb',
+        accent: '#059669',
+        'accent-light': '#d1fae5',
+        warning: '#d97706',
+        'text-primary': '#111827',
+        'text-secondary': '#6b7280',
       },
     },
   },

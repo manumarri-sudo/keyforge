@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import ReactDOM from 'react-dom';
 
 interface ToastProps {
   message: string;
@@ -15,12 +14,21 @@ function ToastItem({ message, type, onClose }: ToastProps) {
 
   return (
     <div
-      className={`px-4 py-3 rounded-lg text-sm font-medium shadow-lg animate-slide-in ${
+      className={`px-4 py-3 rounded-xl text-sm font-medium shadow-lg animate-slide-in flex items-center gap-2 ${
         type === 'success'
-          ? 'bg-emerald-900/80 text-emerald-200 border border-emerald-700'
-          : 'bg-red-900/80 text-red-200 border border-red-700'
+          ? 'bg-emerald-600 text-white'
+          : 'bg-red-600 text-white'
       }`}
     >
+      {type === 'success' ? (
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        </svg>
+      ) : (
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      )}
       {message}
     </div>
   );
