@@ -6,7 +6,12 @@ export async function checkApiAvailable(): Promise<boolean> {
   if (_apiAvailable !== null) return _apiAvailable;
   try {
     const res = await fetch(`${BASE}/providers`, { signal: AbortSignal.timeout(3000) });
-    _apiAvailable = res.ok;
+    if (!res.ok) { _apiAvailable = false; return false; }
+    // Verify it's actual JSON from the API, not HTML from SPA fallback
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) { _apiAvailable = false; return false; }
+    const data = await res.json();
+    _apiAvailable = Array.isArray(data) && data.length > 0;
   } catch {
     _apiAvailable = false;
   }
