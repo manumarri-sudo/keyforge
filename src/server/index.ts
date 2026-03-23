@@ -14,8 +14,31 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = new Hono();
 
-// CORS for dev
-app.use('/api/*', cors());
+// CORS - restrict to localhost origins only
+app.use('/api/*', cors({
+  origin: (origin) => {
+    if (!origin) return 'http://localhost:4000'; // same-origin requests
+    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      return origin;
+    }
+    return 'http://localhost:4000';
+  },
+}));
+
+// Global error handler
+app.onError((err, c) => {
+  console.error(`[KeyForge] Error: ${err.message}`);
+  return c.json({ error: 'Internal server error' }, 500);
+});
+
+// Request body size limit (1MB) via middleware
+app.use('/api/*', async (c, next) => {
+  const contentLength = c.req.header('content-length');
+  if (contentLength && parseInt(contentLength, 10) > 1_048_576) {
+    return c.json({ error: 'Request body too large' }, 413);
+  }
+  await next();
+});
 
 // API routes
 app.route('/api', auth);
@@ -23,7 +46,20 @@ app.route('/api', provision);
 app.route('/api', projects);
 
 // Health check
-app.get('/api/health', (c) => c.json({ status: 'ok' }));
+app.get('/api/health', async (c) => {
+  const projectRoot = path.resolve(__dirname, '../..');
+  const dataDir = path.join(projectRoot, 'data');
+  const writable = (() => {
+    try {
+      fs.mkdirSync(dataDir, { recursive: true });
+      const testFile = path.join(dataDir, '.health-check');
+      fs.writeFileSync(testFile, '');
+      fs.unlinkSync(testFile);
+      return true;
+    } catch { return false; }
+  })();
+  return c.json({ status: 'ok', dataDir: writable ? 'writable' : 'read-only' });
+});
 
 // In production/dev, serve the built frontend from dist/web
 const projectRoot = path.resolve(__dirname, '../..');

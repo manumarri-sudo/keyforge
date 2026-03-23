@@ -42,19 +42,26 @@ export default function ProjectList() {
       try {
         const env = await fetchEnv(name);
         setEnvCache((prev) => ({ ...prev, [name]: env }));
-      } catch { /* ignore */ }
+      } catch (err) {
+        toast(`Failed to load .env: ${(err as Error).message}`, 'error');
+      }
     }
   };
 
   const handleDownload = async (name: string) => {
-    const env = envCache[name] || await fetchEnv(name);
-    const blob = new Blob([env], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = '.env';
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const env = envCache[name] || await fetchEnv(name);
+      const blob = new Blob([env], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${name}.env`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast(`Downloaded ${name}.env`, 'success');
+    } catch (err) {
+      toast(`Download failed: ${(err as Error).message}`, 'error');
+    }
   };
 
   if (loading) {
@@ -111,12 +118,14 @@ export default function ProjectList() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDownload(proj.name); }}
+                    aria-label={`Export .env for ${proj.name}`}
                     className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 hover:border-gray-300 transition-all"
                   >
                     Export .env
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDelete(proj.name); }}
+                    aria-label={`Delete project ${proj.name}`}
                     className="px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-red-500 transition-colors"
                   >
                     Delete

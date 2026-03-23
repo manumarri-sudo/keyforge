@@ -95,6 +95,7 @@ export default function ConnectDialog({ provider, onClose, onConnected }: Props)
                   <button
                     type="button"
                     onClick={() => setShowFields((prev) => ({ ...prev, [field.key]: !prev[field.key] }))}
+                    aria-label={showFields[field.key] ? `Hide ${field.label}` : `Show ${field.label}`}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-medium"
                   >
                     {showFields[field.key] ? 'Hide' : 'Show'}

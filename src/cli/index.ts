@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { providers } from '../providers/registry.js';
-import { getCredential, saveCredential, listConnected } from '../store/keychain.js';
+import { getCredential, saveCredential, deleteCredential, listConnected } from '../store/keychain.js';
 import { listProjects, getEnvContent, exportProject } from '../store/projects.js';
 import { getProvider } from '../providers/registry.js';
 import { logAudit } from '../store/audit.js';
@@ -40,10 +40,10 @@ program
     const provider = getProvider(providerId);
     if (!provider) {
       console.error(`Unknown provider: ${providerId}`);
+      console.error(`Available: ${providers.map((p) => p.id).join(', ')}`);
       process.exit(1);
     }
 
-    // Dynamic import for @clack/prompts
     const clack = await import('@clack/prompts');
     clack.intro(`Connect ${provider.name}`);
 
@@ -78,12 +78,40 @@ program
     clack.outro(`Connected to ${provider.name}${result.account ? ` (${result.account})` : ''}`);
   });
 
+// keyforge disconnect <providerId>
+program
+  .command('disconnect <providerId>')
+  .description('Disconnect a provider')
+  .action(async (providerId: string) => {
+    const provider = getProvider(providerId);
+    if (!provider) {
+      console.error(`Unknown provider: ${providerId}`);
+      process.exit(1);
+    }
+
+    const stored = await getCredential(providerId);
+    if (!stored) {
+      console.log(`${provider.name} is not connected.`);
+      return;
+    }
+
+    await deleteCredential(providerId);
+    logAudit({ event: 'provider_disconnected', providerId });
+    console.log(`Disconnected ${provider.name}.`);
+  });
+
 // keyforge new <projectName>
 program
   .command('new <projectName>')
   .description('Create a new project with API keys')
   .option('-s, --services <services>', 'Comma-separated provider IDs')
   .action(async (projectName: string, opts: { services?: string }) => {
+    // Validate project name
+    if (!/^[a-z0-9][a-z0-9-]{0,49}$/.test(projectName)) {
+      console.error('Invalid project name. Use lowercase letters, numbers, and hyphens (1-50 chars).');
+      process.exit(1);
+    }
+
     const connected = await listConnected();
     if (connected.length === 0) {
       console.error('No providers connected. Run: keyforge connect <provider>');
@@ -93,26 +121,39 @@ program
     let selectedIds: string[];
     if (opts.services) {
       selectedIds = opts.services.split(',').map((s) => s.trim());
+      // Validate all selected services are connected
+      for (const id of selectedIds) {
+        if (!connected.includes(id)) {
+          console.error(`${id} is not connected. Run: keyforge connect ${id}`);
+          process.exit(1);
+        }
+      }
     } else {
       const clack = await import('@clack/prompts');
       const choices = connected.map((id) => {
         const p = getProvider(id)!;
-        return { value: id, label: `${p.icon} ${p.name}` };
+        const method = p.canCreateKeys ? '(creates key)' : '(copies key)';
+        return { value: id, label: `${p.name} ${method}` };
       });
       const result = await clack.multiselect({ message: 'Select services', options: choices });
       if (clack.isCancel(result)) { process.exit(0); }
       selectedIds = result as string[];
+      if (selectedIds.length === 0) {
+        console.error('No services selected.');
+        process.exit(1);
+      }
     }
 
     console.log(`\nProvisioning ${projectName}...\n`);
     const allKeys: Record<string, string> = {};
     const services: Record<string, ProjectService> = {};
+    let errorCount = 0;
 
     for (const providerId of selectedIds) {
       const provider = getProvider(providerId);
-      if (!provider) { console.error(`  ✗ Unknown: ${providerId}`); continue; }
+      if (!provider) { console.error(`  ✗ Unknown: ${providerId}`); errorCount++; continue; }
       const stored = await getCredential(providerId);
-      if (!stored) { console.error(`  ✗ ${provider.name}: not connected`); continue; }
+      if (!stored) { console.error(`  ✗ ${provider.name}: not connected`); errorCount++; continue; }
 
       try {
         if (provider.canCreateKeys && provider.createKey) {
@@ -134,6 +175,11 @@ program
               envMap[provider.envVars[i]] = stored.credentials[field.key];
             }
           }
+          if (Object.keys(envMap).length === 0) {
+            console.error(`  ✗ ${provider.name}: no credentials to copy`);
+            errorCount++;
+            continue;
+          }
           Object.assign(allKeys, envMap);
           services[providerId] = { method: 'copy', envVars: Object.keys(envMap) };
           logAudit({ event: 'key_copied', providerId, projectName });
@@ -141,20 +187,28 @@ program
         }
       } catch (e) {
         console.error(`  ✗ ${provider.name}: ${(e as Error).message}`);
+        errorCount++;
       }
     }
 
-    if (Object.keys(allKeys).length > 0) {
-      createProject(projectName, services);
-      writeEnv(projectName, allKeys);
-      logAudit({ event: 'project_created', projectName });
-      console.log(`\n  Project "${projectName}" created!\n`);
-      for (const [k, v] of Object.entries(allKeys)) {
-        const masked = v.length > 8 ? v.slice(0, 8) + '****' : '****';
-        console.log(`  ${k}=${masked}`);
-      }
-      console.log('');
+    if (Object.keys(allKeys).length === 0) {
+      console.error('\nAll providers failed. No project created.');
+      process.exit(1);
     }
+
+    createProject(projectName, services);
+    writeEnv(projectName, allKeys);
+    logAudit({ event: 'project_created', projectName });
+
+    console.log(`\n  Project "${projectName}" created!\n`);
+    for (const [k, v] of Object.entries(allKeys)) {
+      const masked = v.length > 12 ? v.slice(0, 8) + '****' + v.slice(-4) : '****';
+      console.log(`  ${k}=${masked}`);
+    }
+    if (errorCount > 0) {
+      console.log(`\n  ${errorCount} service(s) failed — see errors above.`);
+    }
+    console.log(`\n  Export: keyforge export ${projectName} --to ./\n`);
   });
 
 // keyforge projects
@@ -168,7 +222,8 @@ program
     for (const p of projects) {
       const svcCount = Object.keys(p.services).length;
       const date = new Date(p.createdAt).toLocaleDateString();
-      console.log(`  ${p.name.padEnd(25)} ${date.padEnd(14)} ${svcCount} service${svcCount !== 1 ? 's' : ''}`);
+      const svcNames = Object.keys(p.services).join(', ');
+      console.log(`  ${p.name.padEnd(25)} ${date.padEnd(14)} ${svcNames}`);
     }
     console.log('');
   });
@@ -192,11 +247,13 @@ program
 // keyforge revoke <projectName>
 program
   .command('revoke <projectName>')
-  .description('Revoke keys for a project')
+  .description('Revoke keys and delete a project')
   .action(async (projectName: string) => {
     const { getProject, deleteProject } = await import('../store/projects.js');
     const project = getProject(projectName);
     if (!project) { console.error(`Project "${projectName}" not found.`); process.exit(1); }
+
+    console.log(`\nRevoking keys for "${projectName}"...\n`);
 
     for (const [providerId, svc] of Object.entries(project.services)) {
       const provider = getProvider(providerId);
@@ -205,20 +262,27 @@ program
         const stored = await getCredential(providerId);
         if (stored) {
           try {
-            await provider.revokeKey(svc.keyId, stored.credentials);
+            const mergedCreds = { ...stored.credentials };
+            if (stored.metadata) {
+              for (const [k, v] of Object.entries(stored.metadata)) mergedCreds[`_${k}`] = v;
+            }
+            await provider.revokeKey(svc.keyId, mergedCreds);
             logAudit({ event: 'key_revoked', providerId, projectName });
             console.log(`  ✓ ${provider.name}: key revoked`);
           } catch (e) {
             console.error(`  ✗ ${provider.name}: ${(e as Error).message}`);
           }
+        } else {
+          console.log(`  ⚠ ${provider.name}: provider disconnected, cannot revoke automatically`);
         }
-      } else {
-        console.log(`  ℹ ${provider?.name || providerId}: manually revoke in their dashboard`);
+      } else if (svc.method === 'copy') {
+        console.log(`  ℹ ${provider.name}: copied key — revoke manually in their dashboard`);
       }
     }
 
     deleteProject(projectName);
-    console.log(`\nProject "${projectName}" deleted.`);
+    logAudit({ event: 'project_deleted', projectName });
+    console.log(`\nProject "${projectName}" deleted.\n`);
   });
 
 program.parse();

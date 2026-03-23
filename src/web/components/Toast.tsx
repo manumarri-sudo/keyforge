@@ -14,6 +14,7 @@ function ToastItem({ message, type, onClose }: ToastProps) {
 
   return (
     <div
+      role="alert"
       className={`px-4 py-3 rounded-xl text-sm font-medium shadow-lg animate-slide-in flex items-center gap-2 ${
         type === 'success'
           ? 'bg-emerald-600 text-white'
@@ -21,11 +22,11 @@ function ToastItem({ message, type, onClose }: ToastProps) {
       }`}
     >
       {type === 'success' ? (
-        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
         </svg>
       ) : (
-        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
         </svg>
       )}
@@ -56,7 +57,7 @@ export function ToastContainer() {
   }, []);
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2" aria-live="polite" aria-atomic="false">
       {toasts.map((t) => (
         <ToastItem
           key={t.id}
